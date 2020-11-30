@@ -1,0 +1,103 @@
+version: '2.4'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.7.4
+    ports: 
+      - "15672:15672"
+      - "5672:5672"
+    # expose:
+    #   - "15672"  
+    volumes:
+      - ./data:/var/lib/rabbitmq
+      - ./data/logs:/var/log/rabbitmq  
+    healthcheck:
+      test: "exit 0"
+    networks:
+      - app-network
+
+  PostgreSQL:
+    container_name: PostgreTests
+    image: postgres:10-alpine
+    ports:
+      - '5531:5432'
+    # expose:
+    #   - "5432"  
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=db
+    volumes:
+      - ./db-volumes/postgresql:/var/lib/postgresql/data
+    healthcheck:
+      test: "exit 0"  
+    networks:
+      - db_net  
+ 
+  # pgadmin:
+  #   image: chorss/docker-pgadmin4
+  #   ports:
+  #     - 5050:5050
+  #   expose:
+  #     - "5050"
+  #   depends_on:
+  #     PostgreSQL:
+  #       condition: service_healthy
+  #   links:
+  #     - "PostgreSQL:pgsql-server"        
+
+  producer:
+    build:
+      context: ./producer
+      dockerfile: Dockerfile
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    links:
+      - rabbitmq    
+    working_dir: /usr/src/app
+    volumes:
+      - /usr/src/app/dist/files
+    ports:
+      - 8080:8080
+    expose:
+      - "8080"  
+    networks:
+      - app-network
+    environment:
+      - MESSAGE_QUEUE=amqp://rabbitmq
+
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile 
+    working_dir: /usr/src/app
+    # volumes:
+    #   - ./consumer:/usr/src/app
+    networks:
+      - app-network
+      - db_net
+    environment:
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=pass
+      - DATABASE_URL=PostgreSQL
+      - MESSAGE_QUEUE=amqp://rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      PostgreSQL:
+        condition: service_healthy
+    links:
+      - rabbitmq
+      - PostgreSQL
+
+
+networks:
+  db_net:
+    driver: bridge
+  app-network:
+    driver: bridge
+   
+  

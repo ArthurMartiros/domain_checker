@@ -1,0 +1,16 @@
+http:
+  host: 'localhost'
+  port: 8080
+directories:
+  csv: '/files'
+db:
+  postgres:
+    url: 'localhost'
+    port: 5432
+    database: 'yaml-db'
+
+transporter:
+  rmq:
+    url: 'localhost'
+    port: 5672
+    durable: false
